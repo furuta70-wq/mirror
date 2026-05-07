@@ -3,11 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>全面カメラ万華鏡</title>
+<title>三角ミラー式カメラ万華鏡</title>
 <style>
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body {
   margin: 0;
   width: 100%;
@@ -16,34 +14,33 @@ html, body {
   background: #020207;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: white;
+  touch-action: manipulation;
 }
 canvas {
   width: 100vw;
   height: 100vh;
   display: block;
 }
-video {
-  display: none;
-}
+video { display: none; }
 #ui {
   position: fixed;
-  left: max(10px, env(safe-area-inset-left));
-  right: max(10px, env(safe-area-inset-right));
-  bottom: max(10px, env(safe-area-inset-bottom));
-  z-index: 10;
+  left: max(8px, env(safe-area-inset-left));
+  right: max(8px, env(safe-area-inset-right));
+  bottom: max(8px, env(safe-area-inset-bottom));
+  z-index: 20;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
+  gap: 6px;
+  padding: 7px;
   border-radius: 999px;
-  background: rgba(4, 4, 10, 0.38);
+  background: rgba(4, 4, 10, 0.34);
   border: 1px solid rgba(255,255,255,0.12);
   backdrop-filter: blur(10px);
-  box-shadow: 0 8px 28px rgba(0,0,0,0.3);
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  box-shadow: 0 8px 26px rgba(0,0,0,0.32);
+  transition: opacity .25s ease, transform .25s ease;
 }
 body.playing #ui {
-  opacity: 0.18;
+  opacity: .17;
   transform: translateY(4px);
 }
 body.playing #ui:hover,
@@ -51,101 +48,114 @@ body.playing #ui:focus-within {
   opacity: 1;
   transform: translateY(0);
 }
+body.uiHidden #ui {
+  opacity: 0;
+  pointer-events: none;
+}
 button {
   appearance: none;
   border: 0;
   border-radius: 999px;
-  padding: 9px 13px;
+  padding: 9px 12px;
   color: #111;
-  background: linear-gradient(135deg, #fff, #ccefff 45%, #ffd8f4);
-  font-weight: 700;
-  font-size: 14px;
+  background: linear-gradient(135deg, #fff, #d9f4ff 48%, #ffd9f5);
+  font-weight: 750;
+  font-size: 13px;
   white-space: nowrap;
 }
+button:disabled {
+  opacity: .55;
+}
+.choice {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+}
+.choice button {
+  padding: 7px 10px;
+  color: white;
+  background: transparent;
+  font-weight: 650;
+}
+.choice button.active {
+  color: #101016;
+  background: rgba(255,255,255,.86);
+}
 .control {
-  min-width: 92px;
+  min-width: 78px;
   flex: 1;
 }
 label {
   display: block;
   font-size: 10px;
-  line-height: 1.1;
-  opacity: 0.92;
+  line-height: 1.05;
+  opacity: .92;
 }
 input[type="range"] {
   width: 100%;
-  accent-color: #d8f2ff;
+  accent-color: #dff5ff;
 }
-select {
-  width: 108px;
-  border-radius: 999px;
-  padding: 8px 9px;
-  color: white;
-  background: rgba(255,255,255,0.12);
-  border: 1px solid rgba(255,255,255,0.16);
-  font-size: 12px;
-}
-#status {
-  position: fixed;
-  left: 50%;
-  bottom: 72px;
-  transform: translateX(-50%);
-  z-index: 9;
-  padding: 7px 12px;
-  border-radius: 999px;
-  background: rgba(0,0,0,0.34);
-  backdrop-filter: blur(8px);
-  font-size: 12px;
-  opacity: 0.9;
-  pointer-events: none;
-  transition: opacity 0.4s ease;
-}
-body.playing #status {
-  opacity: 0;
-}
-#hideBtn {
+#hideBtn, #showBtn {
   width: 34px;
   height: 34px;
   padding: 0;
-}
-body.uiHidden #ui {
-  opacity: 0;
-  pointer-events: none;
 }
 #showBtn {
   position: fixed;
   right: max(10px, env(safe-area-inset-right));
   bottom: max(10px, env(safe-area-inset-bottom));
-  z-index: 11;
-  width: 42px;
-  height: 42px;
-  padding: 0;
+  z-index: 21;
   opacity: 0;
   pointer-events: none;
-  background: rgba(255,255,255,0.42);
+  background: rgba(255,255,255,.43);
   backdrop-filter: blur(10px);
 }
 body.uiHidden #showBtn {
-  opacity: 0.35;
+  opacity: .32;
   pointer-events: auto;
 }
-body.uiHidden #showBtn:hover {
-  opacity: 1;
+body.uiHidden #showBtn:hover { opacity: 1; }
+#status {
+  position: fixed;
+  left: 50%;
+  bottom: 62px;
+  transform: translateX(-50%);
+  z-index: 15;
+  max-width: calc(100vw - 28px);
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.34);
+  backdrop-filter: blur(8px);
+  font-size: 12px;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity .4s ease;
 }
-@media (max-width: 620px) {
+body.playing #status { opacity: 0; }
+@media (min-width: 760px) {
   #ui {
-    gap: 6px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(680px, calc(100vw - 22px));
   }
-  .control {
-    min-width: 68px;
+  body.playing #ui {
+    transform: translateX(-50%) translateY(4px);
   }
-  select {
-    width: 86px;
+  body.playing #ui:hover,
+  body.playing #ui:focus-within {
+    transform: translateX(-50%);
   }
-  button {
-    padding: 8px 10px;
-    font-size: 13px;
-  }
+  .control { min-width: 150px; }
+  button { font-size: 14px; }
+}
+@media (max-width: 420px) {
+  #ui { gap: 4px; padding: 6px; }
+  button { padding: 8px 9px; font-size: 12px; }
+  .choice button { padding: 6px 7px; }
+  .control { min-width: 64px; }
 }
 </style>
 </head>
@@ -153,28 +163,22 @@ body.uiHidden #showBtn:hover {
 <video id="video" autoplay playsinline muted></video>
 <canvas id="canvas"></canvas>
 
-<div id="status">カメラ開始後、下のバーは自動で薄くなります。×で完全に隠せます。</div>
+<div id="status">開始後、バーは薄くなります。画面タップで表示・非表示できます。</div>
 
 <div id="ui">
   <button id="startBtn">開始</button>
-  <button id="snapBtn" style="display:none;">保存</button>
+  <button id="saveBtn" style="display:none;">保存</button>
 
-  <div class="control">
-    <label>鏡 <span id="segValue">16</span></label>
-    <input id="segments" type="range" min="6" max="36" value="16">
+  <div class="choice" aria-label="万華鏡パターン">
+    <button class="patternBtn active" data-pattern="large">大</button>
+    <button class="patternBtn" data-pattern="balanced">中</button>
+    <button class="patternBtn" data-pattern="fine">細</button>
   </div>
 
   <div class="control">
     <label>回転 <span id="rotValue">0.20</span></label>
-    <input id="rotationSpeed" type="range" min="-1.5" max="1.5" step="0.01" value="0.20">
+    <input id="rotationSpeed" type="range" min="-1.2" max="1.2" step="0.01" value="0.20">
   </div>
-
-  <select id="mode">
-    <option value="crystal">結晶</option>
-    <option value="glass">硝子</option>
-    <option value="dream">夢色</option>
-    <option value="classic">淡色</option>
-  </select>
 
   <button id="hideBtn" title="操作バーを隠す">×</button>
 </div>
@@ -184,50 +188,88 @@ body.uiHidden #showBtn:hover {
 <script>
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext("2d", { alpha: false });
 
 const startBtn = document.getElementById("startBtn");
-const snapBtn = document.getElementById("snapBtn");
+const saveBtn = document.getElementById("saveBtn");
 const hideBtn = document.getElementById("hideBtn");
 const showBtn = document.getElementById("showBtn");
 const statusText = document.getElementById("status");
-
-const segmentsInput = document.getElementById("segments");
 const rotationSpeedInput = document.getElementById("rotationSpeed");
-const modeInput = document.getElementById("mode");
-
-const segValue = document.getElementById("segValue");
 const rotValue = document.getElementById("rotValue");
+const patternButtons = Array.from(document.querySelectorAll(".patternBtn"));
 
 let running = false;
 let startTime = performance.now();
+let currentPattern = "balanced";
+let saveLock = false;
 
-const BEAUTY_ZOOM = 1.42;
-const BEAUTY_SATURATION = 1.72;
-const BEAUTY_GLOW = 0.34;
+const quality = {
+  dprCap: 1.5,
+  isTablet: false
+};
 
-function bindValue(input, output) {
-  const update = () => output.textContent = input.value;
-  input.addEventListener("input", update);
-  update();
+const patternSettings = {
+  large: {
+    name: "大",
+    baseTilePhone: 178,
+    baseTileTablet: 230,
+    lattice: 1.0,
+    chamberScale: 1.58,
+    rotationPulse: 0.020
+  },
+  balanced: {
+    name: "中",
+    baseTilePhone: 122,
+    baseTileTablet: 168,
+    lattice: 1.0,
+    chamberScale: 1.42,
+    rotationPulse: 0.030
+  },
+  fine: {
+    name: "細",
+    baseTilePhone: 78,
+    baseTileTablet: 112,
+    lattice: 1.0,
+    chamberScale: 1.26,
+    rotationPulse: 0.045
+  }
+};
+
+const BEAUTY_SATURATION = 1.68;
+const BEAUTY_GLOW = 0.28;
+
+rotationSpeedInput.addEventListener("input", () => {
+  rotValue.textContent = rotationSpeedInput.value;
+});
+rotValue.textContent = rotationSpeedInput.value;
+
+patternButtons.forEach(btn => {
+  btn.addEventListener("click", () => {
+    currentPattern = btn.dataset.pattern;
+    patternButtons.forEach(b => b.classList.toggle("active", b === btn));
+  });
+});
+
+function updateDeviceProfile() {
+  const minSide = Math.min(window.innerWidth, window.innerHeight);
+  const maxSide = Math.max(window.innerWidth, window.innerHeight);
+  quality.isTablet = minSide >= 700 || maxSide >= 1000;
+  quality.dprCap = quality.isTablet ? 1.65 : 1.45;
 }
-bindValue(segmentsInput, segValue);
-bindValue(rotationSpeedInput, rotValue);
 
 function resize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = Math.floor(window.innerWidth * dpr);
-  canvas.height = Math.floor(window.innerHeight * dpr);
+  updateDeviceProfile();
+  const dpr = Math.min(window.devicePixelRatio || 1, quality.dprCap);
+  canvas.width = Math.max(2, Math.floor(window.innerWidth * dpr));
+  canvas.height = Math.max(2, Math.floor(window.innerHeight * dpr));
 }
 window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", () => setTimeout(resize, 180));
 resize();
 
-hideBtn.addEventListener("click", () => {
-  document.body.classList.add("uiHidden");
-});
-showBtn.addEventListener("click", () => {
-  document.body.classList.remove("uiHidden");
-});
+hideBtn.addEventListener("click", () => document.body.classList.add("uiHidden"));
+showBtn.addEventListener("click", () => document.body.classList.remove("uiHidden"));
 
 canvas.addEventListener("click", () => {
   if (running) document.body.classList.toggle("uiHidden");
@@ -235,87 +277,209 @@ canvas.addEventListener("click", () => {
 
 startBtn.addEventListener("click", async () => {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: "environment" },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 }
-      },
-      audio: false
-    });
+    const constraints = quality.isTablet
+      ? { width: { ideal: 1600 }, height: { ideal: 1200 }, facingMode: { ideal: "environment" } }
+      : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: { ideal: "environment" } };
+
+    const stream = await navigator.mediaDevices.getUserMedia({ video: constraints, audio: false });
     video.srcObject = stream;
+    await video.play();
+
     running = true;
     startTime = performance.now();
     startBtn.style.display = "none";
-    snapBtn.style.display = "inline-block";
+    saveBtn.style.display = "inline-block";
     document.body.classList.add("playing");
-    statusText.textContent = "";
     requestAnimationFrame(draw);
   } catch (e) {
     statusText.textContent = "カメラを開始できませんでした。HTTPSまたはローカル環境で開き、権限を確認してください。";
   }
 });
 
-snapBtn.addEventListener("click", () => {
-  const a = document.createElement("a");
-  a.href = canvas.toDataURL("image/png");
-  a.download = "kaleidoscope.png";
-  a.click();
+saveBtn.addEventListener("click", async () => {
+  if (saveLock) return;
+  saveLock = true;
+  saveBtn.disabled = true;
+  const oldText = saveBtn.textContent;
+  saveBtn.textContent = "保存中";
+
+  try {
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    const blob = await canvasToBlob(canvas, "image/png", 1);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    a.href = url;
+    a.download = `kaleidoscope-${stamp}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  } catch (e) {
+    try {
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = "kaleidoscope.png";
+      a.click();
+    } catch (err) {
+      alert("保存に失敗しました。ブラウザを変えるか、画面スクリーンショットをご利用ください。");
+    }
+  } finally {
+    saveBtn.textContent = oldText;
+    saveBtn.disabled = false;
+    saveLock = false;
+  }
 });
 
-function currentFilters(mode) {
-  const s = BEAUTY_SATURATION;
-  if (mode === "dream") {
-    return `saturate(${s * 1.22}) contrast(1.18) brightness(1.12) hue-rotate(18deg)`;
-  }
-  if (mode === "glass") {
-    return `saturate(${s * 0.98}) contrast(1.34) brightness(1.06)`;
-  }
-  if (mode === "classic") {
-    return `saturate(${s * 0.78}) contrast(1.08) brightness(1.03)`;
-  }
-  return `saturate(${s}) contrast(1.24) brightness(1.08)`;
+function canvasToBlob(c, type, quality) {
+  return new Promise((resolve, reject) => {
+    if (!c.toBlob) {
+      try {
+        const dataUrl = c.toDataURL(type, quality);
+        const bin = atob(dataUrl.split(",")[1]);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        resolve(new Blob([bytes], { type }));
+      } catch (e) {
+        reject(e);
+      }
+      return;
+    }
+    c.toBlob(blob => blob ? resolve(blob) : reject(new Error("toBlob failed")), type, quality);
+  });
 }
 
-function drawVignette(w, h) {
-  const cx = w / 2;
-  const cy = h / 2;
-  const r = Math.max(w, h) * 0.72;
-  const g = ctx.createRadialGradient(cx, cy, r * 0.12, cx, cy, r);
-  g.addColorStop(0, "rgba(255,255,255,0)");
-  g.addColorStop(0.72, "rgba(0,0,0,0.06)");
-  g.addColorStop(1, "rgba(0,0,0,0.70)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
+function filters() {
+  return `saturate(${BEAUTY_SATURATION}) contrast(1.22) brightness(1.07)`;
 }
 
-function drawCrystalLines(w, h, segments, baseRotation) {
-  const cx = w / 2;
-  const cy = h / 2;
-  const radius = Math.sqrt(w * w + h * h);
-  const angle = Math.PI * 2 / segments;
+function sourceRect(videoW, videoH, t, pattern) {
+  const side = Math.min(videoW, videoH) / pattern.chamberScale;
+  const cx = videoW * 0.5 + Math.sin(t * 0.31) * videoW * 0.08;
+  const cy = videoH * 0.5 + Math.cos(t * 0.27) * videoH * 0.08;
+  return {
+    sx: Math.max(0, Math.min(videoW - side, cx - side / 2)),
+    sy: Math.max(0, Math.min(videoH - side, cy - side / 2)),
+    sw: side,
+    sh: side
+  };
+}
+
+function clipTriangle(x1, y1, x2, y2, x3, y3) {
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.lineTo(x3, y3);
+  ctx.closePath();
+  ctx.clip();
+}
+
+function drawMirroredVideoIntoTriangle(points, orientation, parity, t, baseRotation, src) {
+  const [p1, p2, p3] = points;
+  const cx = (p1.x + p2.x + p3.x) / 3;
+  const cy = (p1.y + p2.y + p3.y) / 3;
+
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  const side = Math.hypot(dx, dy);
+  const h = side * Math.sqrt(3) / 2;
 
   ctx.save();
+  clipTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
+
   ctx.translate(cx, cy);
-  ctx.rotate(baseRotation);
+  ctx.rotate(baseRotation + orientation * Math.PI / 3 + Math.sin(t * 0.21 + parity) * 0.035);
+
+  if (parity % 2) ctx.scale(-1, 1);
+  if (orientation % 2) ctx.scale(1, -1);
+
+  const drawW = side * 2.4;
+  const drawH = h * 2.4;
+
+  ctx.drawImage(
+    video,
+    src.sx, src.sy, src.sw, src.sh,
+    -drawW / 2, -drawH / 2,
+    drawW, drawH
+  );
+
+  ctx.restore();
+}
+
+function drawGlowLayer(w, h, alpha) {
+  if (alpha <= 0) return;
+  ctx.save();
   ctx.globalCompositeOperation = "screen";
-  ctx.strokeStyle = "rgba(255,255,255,0.115)";
-  ctx.lineWidth = Math.max(1, Math.min(w, h) * 0.00135);
+  ctx.globalAlpha = alpha;
+  ctx.filter = `blur(${Math.max(3, Math.min(w, h) * 0.009)}px) saturate(1.18)`;
+  ctx.drawImage(canvas, 0, 0);
+  ctx.restore();
+  ctx.filter = "none";
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+}
 
-  for (let i = 0; i < segments; i++) {
-    ctx.rotate(angle);
+function drawGlassLines(w, h, tile, triH, rotation) {
+  const radius = Math.sqrt(w*w + h*h);
+  ctx.save();
+  ctx.translate(w/2, h/2);
+  ctx.rotate(rotation);
+  ctx.translate(-w/2, -h/2);
+  ctx.globalCompositeOperation = "screen";
+  ctx.strokeStyle = "rgba(255,255,255,0.095)";
+  ctx.lineWidth = Math.max(0.7, Math.min(w,h) * 0.0009);
+
+  const cols = Math.ceil(w / tile) + 8;
+  const rows = Math.ceil(h / triH) + 8;
+  const startX = -tile * 4;
+  const startY = -triH * 4;
+
+  for (let r = 0; r < rows; r++) {
+    const y = startY + r * triH;
     ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(radius, 0);
+    ctx.moveTo(startX, y);
+    ctx.lineTo(w - startX, y);
     ctx.stroke();
   }
 
-  ctx.strokeStyle = "rgba(205,235,255,0.065)";
-  for (let ring = 0.22; ring <= 0.95; ring += 0.18) {
+  for (let i = -cols; i < cols; i++) {
     ctx.beginPath();
-    ctx.arc(0, 0, radius * ring, 0, Math.PI * 2);
+    ctx.moveTo(startX + i * tile, startY);
+    ctx.lineTo(startX + i * tile + rows * triH / Math.sqrt(3), h - startY);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(startX + i * tile, startY);
+    ctx.lineTo(startX + i * tile - rows * triH / Math.sqrt(3), h - startY);
     ctx.stroke();
   }
+
+  ctx.restore();
+  ctx.globalCompositeOperation = "source-over";
+}
+
+function drawEyepiece(w, h) {
+  const cx = w / 2;
+  const cy = h / 2;
+  const r = Math.min(w, h) * 0.53;
+  const maxR = Math.sqrt(w*w + h*h) * 0.62;
+
+  ctx.save();
+  const g = ctx.createRadialGradient(cx, cy, r * 0.55, cx, cy, maxR);
+  g.addColorStop(0, "rgba(0,0,0,0)");
+  g.addColorStop(0.62, "rgba(0,0,0,0.05)");
+  g.addColorStop(0.84, "rgba(0,0,0,0.36)");
+  g.addColorStop(1, "rgba(0,0,0,0.82)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.globalCompositeOperation = "screen";
+  const shine = ctx.createRadialGradient(cx - r * 0.33, cy - r * 0.35, 0, cx, cy, r);
+  shine.addColorStop(0, "rgba(255,255,255,0.12)");
+  shine.addColorStop(0.26, "rgba(180,230,255,0.04)");
+  shine.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = shine;
+  ctx.fillRect(0, 0, w, h);
 
   ctx.restore();
   ctx.globalCompositeOperation = "source-over";
@@ -326,88 +490,66 @@ function draw() {
 
   const w = canvas.width;
   const h = canvas.height;
-  const cx = w / 2;
-  const cy = h / 2;
-
-  const segments = Number(segmentsInput.value);
-  const rotationSpeed = Number(rotationSpeedInput.value);
-  const mode = modeInput.value;
-
   const t = (performance.now() - startTime) / 1000;
-  const baseRotation = t * rotationSpeed * 0.28;
-  const drift = Math.sin(t * 0.45) * 34 + Math.cos(t * 0.27) * 22;
+  const setting = patternSettings[currentPattern];
+  const cssTile = quality.isTablet ? setting.baseTileTablet : setting.baseTilePhone;
+  const dpr = canvas.width / Math.max(1, window.innerWidth);
+  const tile = Math.round(cssTile * dpr);
+  const triH = tile * Math.sqrt(3) / 2;
+  const rotationSpeed = Number(rotationSpeedInput.value);
+  const baseRotation = t * rotationSpeed * 0.23;
+  const latticeRotation = baseRotation * 0.62;
 
-  const angle = Math.PI * 2 / segments;
-  const radius = Math.sqrt(w * w + h * h);
+  const vw = video.videoWidth || 1280;
+  const vh = video.videoHeight || 720;
+  const src = sourceRect(vw, vh, t, setting);
 
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = "#020207";
   ctx.fillRect(0, 0, w, h);
-
-  const vw = video.videoWidth || 1280;
-  const vh = video.videoHeight || 720;
-  const scale = Math.max(w / vw, h / vh) * BEAUTY_ZOOM;
-  const dw = vw * scale;
-  const dh = vh * scale;
+  ctx.filter = filters();
 
   ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(baseRotation);
+  ctx.translate(w / 2, h / 2);
+  ctx.rotate(latticeRotation);
+  ctx.translate(-w / 2, -h / 2);
 
-  ctx.filter = currentFilters(mode);
+  const margin = Math.sqrt(w*w + h*h) * 0.25;
+  const startX = -margin - tile * 2;
+  const startY = -margin - triH * 2;
+  const endX = w + margin + tile * 2;
+  const endY = h + margin + triH * 2;
 
-  for (let i = 0; i < segments; i++) {
-    ctx.save();
-    ctx.rotate(i * angle);
+  let row = 0;
+  for (let y = startY; y < endY; y += triH) {
+    const offset = (row % 2) * tile / 2;
+    let col = 0;
+    for (let x = startX - offset; x < endX; x += tile) {
+      const pUp = [
+        {x: x, y: y + triH},
+        {x: x + tile / 2, y: y},
+        {x: x + tile, y: y + triH}
+      ];
+      const pDown = [
+        {x: x, y: y + triH},
+        {x: x + tile, y: y + triH},
+        {x: x + tile / 2, y: y + triH * 2}
+      ];
 
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, radius, -angle / 2, angle / 2);
-    ctx.closePath();
-    ctx.clip();
+      drawMirroredVideoIntoTriangle(pUp, (row + col) % 6, row + col, t, baseRotation, src);
+      drawMirroredVideoIntoTriangle(pDown, (row - col + 12) % 6, row + col + 1, t, -baseRotation, src);
 
-    if (i % 2 === 1) {
-      ctx.scale(1, -1);
+      col++;
     }
-
-    const innerRot = Math.sin(t * 0.2 + i * 0.1) * 0.035;
-    ctx.rotate(innerRot);
-
-    const sx = -dw / 2 + Math.sin(t * 0.31 + i) * drift;
-    const sy = -dh / 2 + Math.cos(t * 0.29 + i * 0.7) * drift;
-
-    ctx.drawImage(video, sx, sy, dw, dh);
-
-    if (mode !== "classic") {
-      ctx.globalCompositeOperation = "screen";
-      ctx.globalAlpha = BEAUTY_GLOW * 0.22;
-      ctx.filter = `blur(${Math.max(4, Math.min(w,h) * 0.012)}px) ${currentFilters(mode)}`;
-      ctx.drawImage(video, sx, sy, dw, dh);
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = "source-over";
-      ctx.filter = currentFilters(mode);
-    }
-
-    ctx.restore();
+    row++;
   }
 
   ctx.restore();
   ctx.filter = "none";
 
-  if (mode === "dream") {
-    ctx.save();
-    ctx.globalCompositeOperation = "screen";
-    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.7);
-    g.addColorStop(0, "rgba(255, 210, 245, 0.17)");
-    g.addColorStop(0.45, "rgba(150, 230, 255, 0.10)");
-    g.addColorStop(1, "rgba(255, 230, 130, 0.045)");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, w, h);
-    ctx.restore();
-  }
-
-  drawCrystalLines(w, h, segments, baseRotation);
-  drawVignette(w, h);
+  drawGlowLayer(w, h, BEAUTY_GLOW * 0.18);
+  drawGlassLines(w, h, tile, triH, latticeRotation);
+  drawEyepiece(w, h);
 
   requestAnimationFrame(draw);
 }
