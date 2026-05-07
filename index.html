@@ -27,6 +27,43 @@ canvas {
 video {
   display: none;
 }
+#preview {
+  position: fixed;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(58px, calc(env(safe-area-inset-bottom) + 58px));
+  z-index: 18;
+  width: min(26vw, 180px);
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.22);
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  opacity: .82;
+  display: none;
+}
+body.playing #preview {
+  display: block;
+}
+#preview video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+@media (min-width: 760px) {
+  #preview {
+    width: 170px;
+    bottom: max(70px, calc(env(safe-area-inset-bottom) + 70px));
+  }
+}
+@media (max-width: 420px) {
+  #preview {
+    width: 34vw;
+    bottom: max(56px, calc(env(safe-area-inset-bottom) + 56px));
+  }
+}
 #ui {
   position: fixed;
   left: max(8px, env(safe-area-inset-left));
@@ -158,6 +195,10 @@ body.playing #appName {
 <video id="video" autoplay playsinline muted></video>
 <canvas id="canvas"></canvas>
 
+<div id="preview">
+  <video id="previewVideo" autoplay playsinline muted></video>
+</div>
+
 <div id="appName">カレイドスケープ</div>
 <div id="status">開始後、操作バーは自動で薄くなります。</div>
 
@@ -173,6 +214,7 @@ body.playing #appName {
 
 <script>
 const video = document.getElementById("video");
+const previewVideo = document.getElementById("previewVideo");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d", { alpha: false });
 
@@ -233,7 +275,9 @@ startBtn.addEventListener("click", async () => {
 
     const stream = await navigator.mediaDevices.getUserMedia({ video: constraints, audio: false });
     video.srcObject = stream;
+    previewVideo.srcObject = stream;
     await video.play();
+    await previewVideo.play();
 
     running = true;
     startTime = performance.now();
