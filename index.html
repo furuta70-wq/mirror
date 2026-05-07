@@ -3,15 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>放射三角形カメラ万華鏡</title>
+<title>本格放射ミラー式カメラ万華鏡</title>
 <style>
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
 html, body {
   margin: 0;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #020207;
+  background: #010107;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: white;
   touch-action: manipulation;
@@ -21,7 +24,9 @@ canvas {
   height: 100vh;
   display: block;
 }
-video { display: none; }
+video, #sourceCanvas {
+  display: none;
+}
 #ui {
   position: fixed;
   left: max(8px, env(safe-area-inset-left));
@@ -33,14 +38,14 @@ video { display: none; }
   gap: 8px;
   padding: 7px;
   border-radius: 999px;
-  background: rgba(4, 4, 10, 0.33);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(5, 5, 12, 0.34);
+  border: 1px solid rgba(255,255,255,0.13);
   backdrop-filter: blur(10px);
   box-shadow: 0 8px 26px rgba(0,0,0,0.32);
   transition: opacity .25s ease, transform .25s ease;
 }
 body.playing #ui {
-  opacity: .16;
+  opacity: .14;
   transform: translateY(4px);
 }
 body.playing #ui:hover,
@@ -58,14 +63,16 @@ button {
   border-radius: 999px;
   padding: 9px 13px;
   color: #111;
-  background: linear-gradient(135deg, #fff, #d9f4ff 48%, #ffd9f5);
+  background: linear-gradient(135deg, #fff, #d7f4ff 48%, #ffd9f5);
   font-weight: 750;
   font-size: 13px;
   white-space: nowrap;
 }
-button:disabled { opacity: .55; }
+button:disabled {
+  opacity: .55;
+}
 .control {
-  min-width: 120px;
+  min-width: 116px;
   flex: 1;
 }
 label {
@@ -94,10 +101,12 @@ input[type="range"] {
   backdrop-filter: blur(10px);
 }
 body.uiHidden #showBtn {
-  opacity: .32;
+  opacity: .30;
   pointer-events: auto;
 }
-body.uiHidden #showBtn:hover { opacity: 1; }
+body.uiHidden #showBtn:hover {
+  opacity: 1;
+}
 #status {
   position: fixed;
   left: 50%;
@@ -114,7 +123,9 @@ body.uiHidden #showBtn:hover { opacity: 1; }
   pointer-events: none;
   transition: opacity .4s ease;
 }
-body.playing #status { opacity: 0; }
+body.playing #status {
+  opacity: 0;
+}
 @media (min-width: 760px) {
   #ui {
     left: 50%;
@@ -129,18 +140,31 @@ body.playing #status { opacity: 0; }
   body.playing #ui:focus-within {
     transform: translateX(-50%);
   }
-  .control { min-width: 210px; }
-  button { font-size: 14px; }
+  .control {
+    min-width: 210px;
+  }
+  button {
+    font-size: 14px;
+  }
 }
 @media (max-width: 420px) {
-  #ui { gap: 5px; padding: 6px; }
-  button { padding: 8px 10px; font-size: 12px; }
-  .control { min-width: 84px; }
+  #ui {
+    gap: 5px;
+    padding: 6px;
+  }
+  button {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+  .control {
+    min-width: 84px;
+  }
 }
 </style>
 </head>
 <body>
 <video id="video" autoplay playsinline muted></video>
+<canvas id="sourceCanvas"></canvas>
 <canvas id="canvas"></canvas>
 
 <div id="status">開始後、バーは薄くなります。画面タップで表示・非表示できます。</div>
@@ -150,8 +174,8 @@ body.playing #status { opacity: 0; }
   <button id="saveBtn" style="display:none;">保存</button>
 
   <div class="control">
-    <label>回転 <span id="rotValue">0.20</span></label>
-    <input id="rotationSpeed" type="range" min="-1.2" max="1.2" step="0.01" value="0.20">
+    <label>回転 <span id="rotValue">0.22</span></label>
+    <input id="rotationSpeed" type="range" min="-1.2" max="1.2" step="0.01" value="0.22">
   </div>
 
   <button id="hideBtn" title="操作バーを隠す">×</button>
@@ -163,6 +187,9 @@ body.playing #status { opacity: 0; }
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d", { alpha: false });
+
+const sourceCanvas = document.getElementById("sourceCanvas");
+const sctx = sourceCanvas.getContext("2d", { alpha: false });
 
 const startBtn = document.getElementById("startBtn");
 const saveBtn = document.getElementById("saveBtn");
@@ -176,12 +203,23 @@ let running = false;
 let startTime = performance.now();
 let saveLock = false;
 
-const quality = { dprCap: 1.5, isTablet: false };
+const quality = {
+  dprCap: 1.5,
+  isTablet: false
+};
 
-const SEGMENTS = 12;
-const RINGS = 7;
-const BEAUTY_SATURATION = 1.72;
-const BEAUTY_GLOW = 0.24;
+const SEGMENTS = 14;
+const WEDGE_TRIANGLES = 5;
+const SOURCE_SIZE_PHONE = 620;
+const SOURCE_SIZE_TABLET = 820;
+
+const BEAUTY = {
+  saturation: 1.82,
+  contrast: 1.30,
+  brightness: 1.08,
+  glow: 0.19,
+  edge: 0.10
+};
 
 rotationSpeedInput.addEventListener("input", () => {
   rotValue.textContent = rotationSpeedInput.value;
@@ -197,9 +235,14 @@ function updateDeviceProfile() {
 
 function resize() {
   updateDeviceProfile();
+
   const dpr = Math.min(window.devicePixelRatio || 1, quality.dprCap);
   canvas.width = Math.max(2, Math.floor(window.innerWidth * dpr));
   canvas.height = Math.max(2, Math.floor(window.innerHeight * dpr));
+
+  const srcSize = quality.isTablet ? SOURCE_SIZE_TABLET : SOURCE_SIZE_PHONE;
+  sourceCanvas.width = srcSize;
+  sourceCanvas.height = srcSize;
 }
 window.addEventListener("resize", resize);
 window.addEventListener("orientationchange", () => setTimeout(resize, 180));
@@ -235,6 +278,7 @@ startBtn.addEventListener("click", async () => {
 
 saveBtn.addEventListener("click", async () => {
   if (saveLock) return;
+
   saveLock = true;
   saveBtn.disabled = true;
   const oldText = saveBtn.textContent;
@@ -277,203 +321,296 @@ function canvasToBlob(c, type, quality) {
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
         resolve(new Blob([bytes], { type }));
-      } catch (e) { reject(e); }
+      } catch (e) {
+        reject(e);
+      }
       return;
     }
     c.toBlob(blob => blob ? resolve(blob) : reject(new Error("toBlob failed")), type, quality);
   });
 }
 
-function filters() {
-  return `saturate(${BEAUTY_SATURATION}) contrast(1.24) brightness(1.08)`;
+function sourceFilter() {
+  return `saturate(${BEAUTY.saturation}) contrast(${BEAUTY.contrast}) brightness(${BEAUTY.brightness})`;
 }
 
-function clipTriangleByPolar(cx, cy, r1, r2, a1, a2) {
-  const mid = (a1 + a2) / 2;
-  const p1 = { x: cx + Math.cos(a1) * r2, y: cy + Math.sin(a1) * r2 };
-  const p2 = { x: cx + Math.cos(a2) * r2, y: cy + Math.sin(a2) * r2 };
-  const p3 = { x: cx + Math.cos(mid) * r1, y: cy + Math.sin(mid) * r1 };
-
-  ctx.beginPath();
-  ctx.moveTo(p3.x, p3.y);
-  ctx.lineTo(p1.x, p1.y);
-  ctx.lineTo(p2.x, p2.y);
-  ctx.closePath();
-  ctx.clip();
-
-  return { p1, p2, p3, mid };
-}
-
-function drawCameraPatch(cellCx, cellCy, size, angle, mirrorX, mirrorY, t, seed) {
+function prepareSource(t) {
+  const size = sourceCanvas.width;
   const vw = video.videoWidth || 1280;
   const vh = video.videoHeight || 720;
 
-  const crop = Math.min(vw, vh) * 0.52;
-  const srcCx = vw * 0.5 + Math.sin(t * 0.33 + seed * 0.37) * vw * 0.13;
-  const srcCy = vh * 0.5 + Math.cos(t * 0.29 + seed * 0.21) * vh * 0.13;
-  const sx = Math.max(0, Math.min(vw - crop, srcCx - crop / 2));
-  const sy = Math.max(0, Math.min(vh - crop, srcCy - crop / 2));
+  const crop = Math.min(vw, vh) * 0.62;
+  const driftX = Math.sin(t * 0.32) * vw * 0.11 + Math.sin(t * 0.09) * vw * 0.04;
+  const driftY = Math.cos(t * 0.27) * vh * 0.11 + Math.cos(t * 0.13) * vh * 0.04;
+  const cx = vw * 0.5 + driftX;
+  const cy = vh * 0.5 + driftY;
 
+  const sx = Math.max(0, Math.min(vw - crop, cx - crop / 2));
+  const sy = Math.max(0, Math.min(vh - crop, cy - crop / 2));
+
+  sctx.save();
+  sctx.clearRect(0, 0, size, size);
+  sctx.fillStyle = "#08080e";
+  sctx.fillRect(0, 0, size, size);
+
+  sctx.filter = sourceFilter();
+  sctx.drawImage(video, sx, sy, crop, crop, 0, 0, size, size);
+
+  sctx.globalCompositeOperation = "screen";
+  sctx.globalAlpha = 0.12;
+  sctx.filter = `blur(${Math.max(4, size * 0.015)}px) saturate(1.2)`;
+  sctx.drawImage(sourceCanvas, 0, 0);
+  sctx.globalAlpha = 1;
+  sctx.globalCompositeOperation = "source-over";
+  sctx.filter = "none";
+
+  const vignette = sctx.createRadialGradient(size / 2, size / 2, size * 0.05, size / 2, size / 2, size * 0.72);
+  vignette.addColorStop(0, "rgba(255,255,255,0.08)");
+  vignette.addColorStop(0.55, "rgba(255,255,255,0)");
+  vignette.addColorStop(1, "rgba(0,0,0,0.18)");
+  sctx.fillStyle = vignette;
+  sctx.fillRect(0, 0, size, size);
+
+  sctx.restore();
+}
+
+function clipWedge(cx, cy, radius, angleStep) {
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, radius, -angleStep / 2, angleStep / 2, false);
+  ctx.closePath();
+  ctx.clip();
+}
+
+function clipLocalTriangle(x1, y1, x2, y2, x3, y3) {
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.lineTo(x3, y3);
+  ctx.closePath();
+  ctx.clip();
+}
+
+function drawSourcePatch(dx, dy, dw, dh, sx, sy, sw, sh, rot, flipX, flipY) {
   ctx.save();
-  ctx.translate(cellCx, cellCy);
-  ctx.rotate(angle + Math.sin(t * 0.18 + seed) * 0.035);
-  ctx.scale(mirrorX ? -1 : 1, mirrorY ? -1 : 1);
-
-  const drawSize = size * 2.65;
-  ctx.drawImage(video, sx, sy, crop, crop, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+  ctx.translate(dx + dw / 2, dy + dh / 2);
+  ctx.rotate(rot);
+  ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+  ctx.drawImage(sourceCanvas, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh);
   ctx.restore();
 }
 
-function drawRadialTriangleCells(w, h, t, rotation) {
-  const cx = w / 2;
-  const cy = h / 2;
-  const maxR = Math.sqrt(w*w + h*h) * 0.58;
-  const minR = Math.min(w, h) * 0.035;
-  const step = (maxR - minR) / RINGS;
-  const angleStep = Math.PI * 2 / SEGMENTS;
+function drawInternalTriangleMirror(radius, angleStep, t, wedgeIndex) {
+  const src = sourceCanvas.width;
+  const wedgeWidth = Math.tan(angleStep / 2) * radius * 2;
+  const baseY = -wedgeWidth / 2;
+  const bandH = wedgeWidth / WEDGE_TRIANGLES;
+  const centerJitter = Math.sin(t * 0.21 + wedgeIndex) * src * 0.035;
 
-  ctx.save();
-  ctx.filter = filters();
+  for (let j = 0; j < WEDGE_TRIANGLES; j++) {
+    const y1 = baseY + j * bandH;
+    const y2 = baseY + (j + 1) * bandH;
+    const yMid = (y1 + y2) / 2;
 
-  for (let ring = 0; ring < RINGS; ring++) {
-    const r1 = minR + ring * step;
-    const r2 = minR + (ring + 1.08) * step;
-    const ringShift = (ring % 2) * angleStep / 2;
-    const localSpin = rotation * (1 + ring * 0.025);
+    const leftTop = radius * 0.02 + Math.abs(y1) / Math.tan(angleStep / 2);
+    const leftBottom = radius * 0.02 + Math.abs(y2) / Math.tan(angleStep / 2);
+    const x1 = Math.min(leftTop, leftBottom);
+    const x2 = radius;
 
-    for (let i = 0; i < SEGMENTS; i++) {
-      const a1 = i * angleStep + ringShift + localSpin - angleStep * 0.51;
-      const a2 = i * angleStep + ringShift + localSpin + angleStep * 0.51;
-      const mid = (a1 + a2) / 2;
-      const cellR = (r1 + r2) / 2;
-      const cellCx = cx + Math.cos(mid) * cellR;
-      const cellCy = cy + Math.sin(mid) * cellR;
-      const size = Math.max(step * 1.25, r2 * angleStep * 1.15);
-      const seed = ring * 19 + i;
-
-      ctx.save();
-      const tri = clipTriangleByPolar(cx, cy, r1, r2, a1, a2);
-
-      const mirrorX = (i + ring) % 2 === 1;
-      const mirrorY = ring % 2 === 1;
-      const patchAngle = mid + Math.PI / 2 + ((i % 3) - 1) * Math.PI / 3;
-
-      drawCameraPatch(cellCx, cellCy, size, patchAngle, mirrorX, mirrorY, t, seed);
-      ctx.restore();
-    }
-  }
-
-  ctx.restore();
-  ctx.filter = "none";
-}
-
-function drawCenterPrism(w, h, t, rotation) {
-  const cx = w / 2;
-  const cy = h / 2;
-  const radius = Math.min(w, h) * 0.16;
-  const angleStep = Math.PI * 2 / SEGMENTS;
-
-  ctx.save();
-  ctx.filter = filters();
-
-  for (let i = 0; i < SEGMENTS; i++) {
-    const a1 = i * angleStep + rotation - angleStep / 2;
-    const a2 = i * angleStep + rotation + angleStep / 2;
     ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(a1) * radius, cy + Math.sin(a1) * radius);
-    ctx.lineTo(cx + Math.cos(a2) * radius, cy + Math.sin(a2) * radius);
-    ctx.closePath();
-    ctx.clip();
 
-    const mirrorX = i % 2 === 1;
-    drawCameraPatch(cx, cy, radius * 1.35, (a1 + a2) / 2, mirrorX, false, t, i + 100);
+    if (j % 2 === 0) {
+      clipLocalTriangle(x1, y1, x2, yMid, x1, y2);
+    } else {
+      clipLocalTriangle(x1, yMid, x2, y1, x2, y2);
+    }
+
+    const cellW = Math.max(2, x2 - x1);
+    const cellH = Math.max(2, y2 - y1);
+    const srcSize = src * (0.56 + j * 0.055);
+    const sx = Math.max(0, Math.min(src - srcSize, src * 0.5 - srcSize / 2 + centerJitter + Math.sin((j + wedgeIndex) * 1.7 + t * 0.25) * src * 0.08));
+    const sy = Math.max(0, Math.min(src - srcSize, src * 0.5 - srcSize / 2 + Math.cos((j - wedgeIndex) * 1.4 + t * 0.22) * src * 0.08));
+
+    drawSourcePatch(
+      x1 - cellW * 0.04,
+      y1 - cellH * 0.18,
+      cellW * 1.12,
+      cellH * 1.36,
+      sx,
+      sy,
+      srcSize,
+      srcSize,
+      (j % 3 - 1) * Math.PI / 3 + Math.sin(t * 0.18 + j) * 0.04,
+      (j + wedgeIndex) % 2 === 1,
+      j % 2 === 1
+    );
+
     ctx.restore();
   }
 
-  ctx.restore();
-  ctx.filter = "none";
-}
-
-function drawGlowLayer(w, h, alpha) {
   ctx.save();
   ctx.globalCompositeOperation = "screen";
-  ctx.globalAlpha = alpha;
-  ctx.filter = `blur(${Math.max(4, Math.min(w, h) * 0.010)}px) saturate(1.16)`;
-  ctx.drawImage(canvas, 0, 0);
+  ctx.globalAlpha = 0.25;
+  ctx.strokeStyle = "rgba(255,255,255,0.20)";
+  ctx.lineWidth = Math.max(0.8, radius * 0.0014);
+
+  for (let j = 1; j < WEDGE_TRIANGLES; j++) {
+    const y = baseY + j * bandH;
+    const x = radius * 0.02 + Math.abs(y) / Math.tan(angleStep / 2);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(radius, 0);
+    ctx.stroke();
+  }
+
   ctx.restore();
-  ctx.filter = "none";
-  ctx.globalAlpha = 1;
+}
+
+function drawOneWedge(cx, cy, radius, angleStep, segmentIndex, totalRotation, t) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(segmentIndex * angleStep + totalRotation);
+
+  if (segmentIndex % 2 === 1) {
+    ctx.scale(1, -1);
+  }
+
+  clipWedge(0, 0, radius, angleStep);
+  drawInternalTriangleMirror(radius, angleStep, t, segmentIndex);
+
+  ctx.restore();
+}
+
+function drawKaleidoscope(w, h, t) {
+  const cx = w / 2;
+  const cy = h / 2;
+  const angleStep = Math.PI * 2 / SEGMENTS;
+  const radius = Math.sqrt(w * w + h * h) * 0.57;
+  const rotationSpeed = Number(rotationSpeedInput.value);
+  const totalRotation = t * rotationSpeed * 0.28;
+
+  ctx.fillStyle = "#05050b";
+  ctx.fillRect(0, 0, w, h);
+
+  for (let i = 0; i < SEGMENTS; i++) {
+    drawOneWedge(cx, cy, radius, angleStep, i, totalRotation, t);
+  }
+
+  drawCenterSeal(cx, cy, Math.min(w, h) * 0.105, angleStep, totalRotation, t);
+  drawMirrorLines(cx, cy, radius, angleStep, totalRotation);
+}
+
+function drawCenterSeal(cx, cy, r, angleStep, rotation, t) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation * 1.35);
+
+  const src = sourceCanvas.width;
+
+  for (let i = 0; i < SEGMENTS; i++) {
+    ctx.save();
+    ctx.rotate(i * angleStep);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, r, -angleStep / 2, angleStep / 2);
+    ctx.closePath();
+    ctx.clip();
+
+    if (i % 2 === 1) ctx.scale(1, -1);
+
+    const srcSize = src * 0.48;
+    const sx = src * 0.5 - srcSize / 2 + Math.sin(t * 0.25 + i) * src * 0.06;
+    const sy = src * 0.5 - srcSize / 2 + Math.cos(t * 0.28 + i) * src * 0.06;
+    ctx.drawImage(sourceCanvas, sx, sy, srcSize, srcSize, -r, -r, r * 2, r * 2);
+
+    ctx.restore();
+  }
+
+  ctx.globalCompositeOperation = "screen";
+  ctx.strokeStyle = "rgba(255,255,255,0.18)";
+  ctx.lineWidth = Math.max(0.8, r * 0.025);
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.restore();
   ctx.globalCompositeOperation = "source-over";
 }
 
-function drawCellLines(w, h, rotation) {
-  const cx = w / 2;
-  const cy = h / 2;
-  const maxR = Math.sqrt(w*w + h*h) * 0.58;
-  const minR = Math.min(w, h) * 0.035;
-  const step = (maxR - minR) / RINGS;
-  const angleStep = Math.PI * 2 / SEGMENTS;
-
+function drawMirrorLines(cx, cy, radius, angleStep, rotation) {
   ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation);
   ctx.globalCompositeOperation = "screen";
-  ctx.lineWidth = Math.max(0.8, Math.min(w, h) * 0.001);
-  ctx.strokeStyle = "rgba(255,255,255,0.12)";
 
-  for (let ring = 0; ring < RINGS; ring++) {
-    const r1 = minR + ring * step;
-    const r2 = minR + (ring + 1.08) * step;
-    const ringShift = (ring % 2) * angleStep / 2;
-    const localSpin = rotation * (1 + ring * 0.025);
+  ctx.strokeStyle = "rgba(255,255,255,0.13)";
+  ctx.lineWidth = Math.max(0.8, radius * 0.00115);
 
-    for (let i = 0; i < SEGMENTS; i++) {
-      const a1 = i * angleStep + ringShift + localSpin - angleStep * 0.51;
-      const a2 = i * angleStep + ringShift + localSpin + angleStep * 0.51;
-      const mid = (a1 + a2) / 2;
+  for (let i = 0; i < SEGMENTS; i++) {
+    ctx.rotate(angleStep);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(radius, 0);
+    ctx.stroke();
+  }
 
-      const p1x = cx + Math.cos(a1) * r2;
-      const p1y = cy + Math.sin(a1) * r2;
-      const p2x = cx + Math.cos(a2) * r2;
-      const p2y = cy + Math.sin(a2) * r2;
-      const p3x = cx + Math.cos(mid) * r1;
-      const p3y = cy + Math.sin(mid) * r1;
-
-      ctx.beginPath();
-      ctx.moveTo(p3x, p3y);
-      ctx.lineTo(p1x, p1y);
-      ctx.lineTo(p2x, p2y);
-      ctx.closePath();
-      ctx.stroke();
-    }
+  ctx.strokeStyle = "rgba(210,235,255,0.052)";
+  for (let r = radius * 0.18; r < radius * 0.96; r += radius * 0.16) {
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.stroke();
   }
 
   ctx.restore();
   ctx.globalCompositeOperation = "source-over";
+}
+
+function applyFinishing(w, h) {
+  ctx.save();
+
+  ctx.globalCompositeOperation = "screen";
+  ctx.globalAlpha = BEAUTY.glow;
+  ctx.filter = `blur(${Math.max(4, Math.min(w, h) * 0.011)}px) saturate(1.22)`;
+  ctx.drawImage(canvas, 0, 0);
+
+  ctx.filter = "none";
+  ctx.globalAlpha = BEAUTY.edge;
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = Math.max(1, Math.min(w, h) * 0.001);
+  ctx.strokeRect(0, 0, w, h);
+
+  ctx.restore();
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.filter = "none";
+
+  drawEyepiece(w, h);
 }
 
 function drawEyepiece(w, h) {
   const cx = w / 2;
   const cy = h / 2;
-  const r = Math.min(w, h) * 0.55;
-  const maxR = Math.sqrt(w*w + h*h) * 0.64;
+  const r = Math.min(w, h) * 0.56;
+  const maxR = Math.sqrt(w*w + h*h) * 0.66;
 
   ctx.save();
+
   const g = ctx.createRadialGradient(cx, cy, r * 0.45, cx, cy, maxR);
   g.addColorStop(0, "rgba(0,0,0,0)");
-  g.addColorStop(0.66, "rgba(0,0,0,0.035)");
-  g.addColorStop(0.84, "rgba(0,0,0,0.32)");
-  g.addColorStop(1, "rgba(0,0,0,0.86)");
+  g.addColorStop(0.68, "rgba(0,0,0,0.04)");
+  g.addColorStop(0.84, "rgba(0,0,0,0.31)");
+  g.addColorStop(1, "rgba(0,0,0,0.88)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
 
   ctx.globalCompositeOperation = "screen";
   const shine = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.38, 0, cx, cy, r);
   shine.addColorStop(0, "rgba(255,255,255,0.12)");
-  shine.addColorStop(0.25, "rgba(180,230,255,0.04)");
+  shine.addColorStop(0.22, "rgba(180,230,255,0.045)");
   shine.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = shine;
   ctx.fillRect(0, 0, w, h);
+
   ctx.restore();
   ctx.globalCompositeOperation = "source-over";
 }
@@ -484,18 +621,11 @@ function draw() {
   const w = canvas.width;
   const h = canvas.height;
   const t = (performance.now() - startTime) / 1000;
-  const rotationSpeed = Number(rotationSpeedInput.value);
-  const rotation = t * rotationSpeed * 0.25;
 
+  prepareSource(t);
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#020207";
-  ctx.fillRect(0, 0, w, h);
-
-  drawRadialTriangleCells(w, h, t, rotation);
-  drawCenterPrism(w, h, t, rotation * 1.15);
-  drawGlowLayer(w, h, BEAUTY_GLOW * 0.18);
-  drawCellLines(w, h, rotation);
-  drawEyepiece(w, h);
+  drawKaleidoscope(w, h, t);
+  applyFinishing(w, h);
 
   requestAnimationFrame(draw);
 }
