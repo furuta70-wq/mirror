@@ -30,7 +30,7 @@ video {
 #preview {
   position: fixed;
   right: max(10px, env(safe-area-inset-right));
-  bottom: max(58px, calc(env(safe-area-inset-bottom) + 58px));
+  bottom: max(8px, env(safe-area-inset-bottom));
   z-index: 18;
   width: min(26vw, 180px);
   aspect-ratio: 16 / 9;
@@ -55,13 +55,13 @@ body.playing #preview {
 @media (min-width: 760px) {
   #preview {
     width: 170px;
-    bottom: max(70px, calc(env(safe-area-inset-bottom) + 70px));
+    bottom: max(8px, env(safe-area-inset-bottom));
   }
 }
 @media (max-width: 420px) {
   #preview {
     width: 34vw;
-    bottom: max(56px, calc(env(safe-area-inset-bottom) + 56px));
+    bottom: max(8px, env(safe-area-inset-bottom));
   }
 }
 #ui {
