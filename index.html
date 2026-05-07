@@ -226,6 +226,56 @@ body.playing #appName {
     width: 34vw;
   }
 }
+
+@media (max-width: 900px) and (orientation: landscape) {
+  #ui {
+    left: max(8px, env(safe-area-inset-left));
+    right: auto;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: min(42vw, 300px);
+    gap: 5px;
+    padding: 5px;
+  }
+  button {
+    padding: 7px 9px;
+    font-size: 12px;
+  }
+  .control {
+    min-width: 0;
+  }
+  label {
+    font-size: 9px;
+  }
+  #preview {
+    width: min(24vw, 160px);
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 700px) and (orientation: landscape) {
+  #ui {
+    width: min(38vw, 250px);
+  }
+  button {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+  #preview {
+    width: min(25vw, 135px);
+  }
+}
+
+@media (max-height: 420px) and (orientation: landscape) {
+  #ui {
+    width: min(36vw, 235px);
+    padding: 4px;
+  }
+  #preview {
+    width: min(23vw, 126px);
+  }
+}
+
 </style>
 </head>
 <body>
