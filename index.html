@@ -189,6 +189,43 @@ body.playing #appName {
     min-width: 84px;
   }
 }
+@media (max-width: 620px) {
+  #ui {
+    left: max(8px, env(safe-area-inset-left));
+    right: auto;
+    width: min(58vw, 270px);
+    gap: 5px;
+    padding: 6px;
+  }
+  button {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+  .control {
+    min-width: 0;
+  }
+  #preview {
+    width: min(36vw, 150px);
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 380px) {
+  #ui {
+    width: min(54vw, 220px);
+  }
+  button {
+    padding: 7px 8px;
+    font-size: 11px;
+  }
+  label {
+    font-size: 9px;
+  }
+  #preview {
+    width: 34vw;
+  }
+}
 </style>
 </head>
 <body>
@@ -300,7 +337,8 @@ saveBtn.addEventListener("click", async () => {
 
   try {
     await new Promise(resolve => requestAnimationFrame(resolve));
-    const blob = await canvasToBlob(canvas, "image/png", 1);
+    const captureCanvas = makeCaptureCanvasWithPreview();
+    const blob = await canvasToBlob(captureCanvas, "image/png", 1);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -325,6 +363,79 @@ saveBtn.addEventListener("click", async () => {
     saveLock = false;
   }
 });
+
+function makeCaptureCanvasWithPreview() {
+  const out = document.createElement("canvas");
+  out.width = canvas.width;
+  out.height = canvas.height;
+  const octx = out.getContext("2d", { alpha: false });
+
+  octx.drawImage(canvas, 0, 0);
+
+  const preview = document.getElementById("preview");
+  if (preview && video.videoWidth && video.videoHeight) {
+    const rect = preview.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / canvasRect.width;
+    const scaleY = canvas.height / canvasRect.height;
+
+    const x = (rect.left - canvasRect.left) * scaleX;
+    const y = (rect.top - canvasRect.top) * scaleY;
+    const w = rect.width * scaleX;
+    const h = rect.height * scaleY;
+    const r = Math.max(8, Math.min(w, h) * 0.08);
+
+    octx.save();
+
+    octx.shadowColor = "rgba(0,0,0,0.45)";
+    octx.shadowBlur = Math.max(8, w * 0.06);
+    octx.shadowOffsetY = Math.max(3, h * 0.025);
+
+    octx.fillStyle = "rgba(0,0,0,0.38)";
+    roundedRect(octx, x, y, w, h, r);
+    octx.fill();
+
+    octx.shadowColor = "transparent";
+    roundedRect(octx, x, y, w, h, r);
+    octx.clip();
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    const scale = Math.max(w / vw, h / vh);
+    const dw = vw * scale;
+    const dh = vh * scale;
+
+    octx.translate(x + w, y);
+    octx.scale(-1, 1);
+    octx.drawImage(video, -(w + (dw - w) / 2), -(dh - h) / 2, dw, dh);
+
+    octx.restore();
+
+    octx.save();
+    octx.strokeStyle = "rgba(255,255,255,0.26)";
+    octx.lineWidth = Math.max(1, Math.min(w, h) * 0.012);
+    roundedRect(octx, x, y, w, h, r);
+    octx.stroke();
+    octx.restore();
+  }
+
+  return out;
+}
+
+function roundedRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
 
 function canvasToBlob(c, type, quality) {
   return new Promise((resolve, reject) => {
