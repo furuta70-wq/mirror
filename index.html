@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>本格放射ミラー式カメラ万華鏡</title>
+<title>放射状カメラ万華鏡</title>
 <style>
 * {
   box-sizing: border-box;
@@ -14,7 +14,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #010107;
+  background: #000;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: white;
   touch-action: manipulation;
@@ -24,7 +24,7 @@ canvas {
   height: 100vh;
   display: block;
 }
-video, #sourceCanvas {
+video {
   display: none;
 }
 #ui {
@@ -38,8 +38,8 @@ video, #sourceCanvas {
   gap: 8px;
   padding: 7px;
   border-radius: 999px;
-  background: rgba(5, 5, 12, 0.34);
-  border: 1px solid rgba(255,255,255,0.13);
+  background: rgba(5, 5, 12, 0.32);
+  border: 1px solid rgba(255,255,255,0.12);
   backdrop-filter: blur(10px);
   box-shadow: 0 8px 26px rgba(0,0,0,0.32);
   transition: opacity .25s ease, transform .25s ease;
@@ -164,7 +164,6 @@ body.playing #status {
 </head>
 <body>
 <video id="video" autoplay playsinline muted></video>
-<canvas id="sourceCanvas"></canvas>
 <canvas id="canvas"></canvas>
 
 <div id="status">開始後、バーは薄くなります。画面タップで表示・非表示できます。</div>
@@ -174,8 +173,8 @@ body.playing #status {
   <button id="saveBtn" style="display:none;">保存</button>
 
   <div class="control">
-    <label>回転 <span id="rotValue">0.22</span></label>
-    <input id="rotationSpeed" type="range" min="-1.2" max="1.2" step="0.01" value="0.22">
+    <label>回転 <span id="rotValue">0.18</span></label>
+    <input id="rotationSpeed" type="range" min="-1.2" max="1.2" step="0.01" value="0.18">
   </div>
 
   <button id="hideBtn" title="操作バーを隠す">×</button>
@@ -187,9 +186,6 @@ body.playing #status {
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d", { alpha: false });
-
-const sourceCanvas = document.getElementById("sourceCanvas");
-const sctx = sourceCanvas.getContext("2d", { alpha: false });
 
 const startBtn = document.getElementById("startBtn");
 const saveBtn = document.getElementById("saveBtn");
@@ -203,22 +199,16 @@ let running = false;
 let startTime = performance.now();
 let saveLock = false;
 
+const SEGMENTS = 16;
+const ZOOM = 1.42;
+const SATURATION = 1.72;
+const CONTRAST = 1.20;
+const BRIGHTNESS = 1.08;
+const GLOW = 0.16;
+
 const quality = {
-  dprCap: 1.5,
-  isTablet: false
-};
-
-const SEGMENTS = 14;
-const WEDGE_TRIANGLES = 5;
-const SOURCE_SIZE_PHONE = 620;
-const SOURCE_SIZE_TABLET = 820;
-
-const BEAUTY = {
-  saturation: 1.82,
-  contrast: 1.30,
-  brightness: 1.08,
-  glow: 0.19,
-  edge: 0.10
+  isTablet: false,
+  dprCap: 1.5
 };
 
 rotationSpeedInput.addEventListener("input", () => {
@@ -235,14 +225,9 @@ function updateDeviceProfile() {
 
 function resize() {
   updateDeviceProfile();
-
   const dpr = Math.min(window.devicePixelRatio || 1, quality.dprCap);
   canvas.width = Math.max(2, Math.floor(window.innerWidth * dpr));
   canvas.height = Math.max(2, Math.floor(window.innerHeight * dpr));
-
-  const srcSize = quality.isTablet ? SOURCE_SIZE_TABLET : SOURCE_SIZE_PHONE;
-  sourceCanvas.width = srcSize;
-  sourceCanvas.height = srcSize;
 }
 window.addEventListener("resize", resize);
 window.addEventListener("orientationchange", () => setTimeout(resize, 180));
@@ -291,7 +276,7 @@ saveBtn.addEventListener("click", async () => {
     const a = document.createElement("a");
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     a.href = url;
-    a.download = `kaleidoscope-${stamp}.png`;
+    a.download = `radial-kaleidoscope-${stamp}.png`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -300,7 +285,7 @@ saveBtn.addEventListener("click", async () => {
     try {
       const a = document.createElement("a");
       a.href = canvas.toDataURL("image/png");
-      a.download = "kaleidoscope.png";
+      a.download = "radial-kaleidoscope.png";
       a.click();
     } catch (err) {
       alert("保存に失敗しました。ブラウザを変えるか、画面スクリーンショットをご利用ください。");
@@ -330,232 +315,93 @@ function canvasToBlob(c, type, quality) {
   });
 }
 
-function sourceFilter() {
-  return `saturate(${BEAUTY.saturation}) contrast(${BEAUTY.contrast}) brightness(${BEAUTY.brightness})`;
-}
+function drawWedgeImage(w, h, t, rotation) {
+  const cx = w / 2;
+  const cy = h / 2;
+  const angle = Math.PI * 2 / SEGMENTS;
+  const radius = Math.sqrt(w * w + h * h) * 0.72;
 
-function prepareSource(t) {
-  const size = sourceCanvas.width;
   const vw = video.videoWidth || 1280;
   const vh = video.videoHeight || 720;
+  const scale = Math.max(w / vw, h / vh) * ZOOM;
+  const dw = vw * scale;
+  const dh = vh * scale;
 
-  const crop = Math.min(vw, vh) * 0.62;
-  const driftX = Math.sin(t * 0.32) * vw * 0.11 + Math.sin(t * 0.09) * vw * 0.04;
-  const driftY = Math.cos(t * 0.27) * vh * 0.11 + Math.cos(t * 0.13) * vh * 0.04;
-  const cx = vw * 0.5 + driftX;
-  const cy = vh * 0.5 + driftY;
+  const driftX = Math.sin(t * 0.31) * dw * 0.035 + Math.sin(t * 0.11) * dw * 0.015;
+  const driftY = Math.cos(t * 0.27) * dh * 0.035 + Math.cos(t * 0.13) * dh * 0.015;
+  const innerRotation = Math.sin(t * 0.18) * 0.035;
 
-  const sx = Math.max(0, Math.min(vw - crop, cx - crop / 2));
-  const sy = Math.max(0, Math.min(vh - crop, cy - crop / 2));
-
-  sctx.save();
-  sctx.clearRect(0, 0, size, size);
-  sctx.fillStyle = "#08080e";
-  sctx.fillRect(0, 0, size, size);
-
-  sctx.filter = sourceFilter();
-  sctx.drawImage(video, sx, sy, crop, crop, 0, 0, size, size);
-
-  sctx.globalCompositeOperation = "screen";
-  sctx.globalAlpha = 0.12;
-  sctx.filter = `blur(${Math.max(4, size * 0.015)}px) saturate(1.2)`;
-  sctx.drawImage(sourceCanvas, 0, 0);
-  sctx.globalAlpha = 1;
-  sctx.globalCompositeOperation = "source-over";
-  sctx.filter = "none";
-
-  const vignette = sctx.createRadialGradient(size / 2, size / 2, size * 0.05, size / 2, size / 2, size * 0.72);
-  vignette.addColorStop(0, "rgba(255,255,255,0.08)");
-  vignette.addColorStop(0.55, "rgba(255,255,255,0)");
-  vignette.addColorStop(1, "rgba(0,0,0,0.18)");
-  sctx.fillStyle = vignette;
-  sctx.fillRect(0, 0, size, size);
-
-  sctx.restore();
-}
-
-function clipWedge(cx, cy, radius, angleStep) {
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.arc(cx, cy, radius, -angleStep / 2, angleStep / 2, false);
-  ctx.closePath();
-  ctx.clip();
-}
-
-function clipLocalTriangle(x1, y1, x2, y2, x3, y3) {
-  ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
-  ctx.lineTo(x3, y3);
-  ctx.closePath();
-  ctx.clip();
-}
-
-function drawSourcePatch(dx, dy, dw, dh, sx, sy, sw, sh, rot, flipX, flipY) {
   ctx.save();
-  ctx.translate(dx + dw / 2, dy + dh / 2);
-  ctx.rotate(rot);
-  ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
-  ctx.drawImage(sourceCanvas, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh);
-  ctx.restore();
-}
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation);
+  ctx.filter = `saturate(${SATURATION}) contrast(${CONTRAST}) brightness(${BRIGHTNESS})`;
 
-function drawInternalTriangleMirror(radius, angleStep, t, wedgeIndex) {
-  const src = sourceCanvas.width;
-  const wedgeWidth = Math.tan(angleStep / 2) * radius * 2;
-  const baseY = -wedgeWidth / 2;
-  const bandH = wedgeWidth / WEDGE_TRIANGLES;
-  const centerJitter = Math.sin(t * 0.21 + wedgeIndex) * src * 0.035;
-
-  for (let j = 0; j < WEDGE_TRIANGLES; j++) {
-    const y1 = baseY + j * bandH;
-    const y2 = baseY + (j + 1) * bandH;
-    const yMid = (y1 + y2) / 2;
-
-    const leftTop = radius * 0.02 + Math.abs(y1) / Math.tan(angleStep / 2);
-    const leftBottom = radius * 0.02 + Math.abs(y2) / Math.tan(angleStep / 2);
-    const x1 = Math.min(leftTop, leftBottom);
-    const x2 = radius;
-
+  for (let i = 0; i < SEGMENTS; i++) {
     ctx.save();
+    ctx.rotate(i * angle);
 
-    if (j % 2 === 0) {
-      clipLocalTriangle(x1, y1, x2, yMid, x1, y2);
-    } else {
-      clipLocalTriangle(x1, yMid, x2, y1, x2, y2);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, radius, -angle / 2 - 0.003, angle / 2 + 0.003);
+    ctx.closePath();
+    ctx.clip();
+
+    if (i % 2 === 1) {
+      ctx.scale(1, -1);
     }
 
-    const cellW = Math.max(2, x2 - x1);
-    const cellH = Math.max(2, y2 - y1);
-    const srcSize = src * (0.56 + j * 0.055);
-    const sx = Math.max(0, Math.min(src - srcSize, src * 0.5 - srcSize / 2 + centerJitter + Math.sin((j + wedgeIndex) * 1.7 + t * 0.25) * src * 0.08));
-    const sy = Math.max(0, Math.min(src - srcSize, src * 0.5 - srcSize / 2 + Math.cos((j - wedgeIndex) * 1.4 + t * 0.22) * src * 0.08));
+    ctx.rotate(innerRotation + Math.sin(t * 0.12 + i * 0.21) * 0.010);
 
-    drawSourcePatch(
-      x1 - cellW * 0.04,
-      y1 - cellH * 0.18,
-      cellW * 1.12,
-      cellH * 1.36,
-      sx,
-      sy,
-      srcSize,
-      srcSize,
-      (j % 3 - 1) * Math.PI / 3 + Math.sin(t * 0.18 + j) * 0.04,
-      (j + wedgeIndex) % 2 === 1,
-      j % 2 === 1
+    ctx.drawImage(
+      video,
+      -dw / 2 + driftX,
+      -dh / 2 + driftY,
+      dw,
+      dh
     );
 
     ctx.restore();
   }
 
+  ctx.restore();
+  ctx.filter = "none";
+}
+
+function drawSoftGlow(w, h) {
   ctx.save();
   ctx.globalCompositeOperation = "screen";
-  ctx.globalAlpha = 0.25;
-  ctx.strokeStyle = "rgba(255,255,255,0.20)";
-  ctx.lineWidth = Math.max(0.8, radius * 0.0014);
-
-  for (let j = 1; j < WEDGE_TRIANGLES; j++) {
-    const y = baseY + j * bandH;
-    const x = radius * 0.02 + Math.abs(y) / Math.tan(angleStep / 2);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(radius, 0);
-    ctx.stroke();
-  }
-
+  ctx.globalAlpha = GLOW;
+  ctx.filter = `blur(${Math.max(4, Math.min(w, h) * 0.010)}px) saturate(1.18)`;
+  ctx.drawImage(canvas, 0, 0);
   ctx.restore();
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.filter = "none";
 }
 
-function drawOneWedge(cx, cy, radius, angleStep, segmentIndex, totalRotation, t) {
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(segmentIndex * angleStep + totalRotation);
-
-  if (segmentIndex % 2 === 1) {
-    ctx.scale(1, -1);
-  }
-
-  clipWedge(0, 0, radius, angleStep);
-  drawInternalTriangleMirror(radius, angleStep, t, segmentIndex);
-
-  ctx.restore();
-}
-
-function drawKaleidoscope(w, h, t) {
+function drawMirrorGuides(w, h, rotation) {
   const cx = w / 2;
   const cy = h / 2;
-  const angleStep = Math.PI * 2 / SEGMENTS;
-  const radius = Math.sqrt(w * w + h * h) * 0.57;
-  const rotationSpeed = Number(rotationSpeedInput.value);
-  const totalRotation = t * rotationSpeed * 0.28;
+  const radius = Math.sqrt(w * w + h * h) * 0.72;
+  const angle = Math.PI * 2 / SEGMENTS;
 
-  ctx.fillStyle = "#05050b";
-  ctx.fillRect(0, 0, w, h);
-
-  for (let i = 0; i < SEGMENTS; i++) {
-    drawOneWedge(cx, cy, radius, angleStep, i, totalRotation, t);
-  }
-
-  drawCenterSeal(cx, cy, Math.min(w, h) * 0.105, angleStep, totalRotation, t);
-  drawMirrorLines(cx, cy, radius, angleStep, totalRotation);
-}
-
-function drawCenterSeal(cx, cy, r, angleStep, rotation, t) {
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(rotation * 1.35);
-
-  const src = sourceCanvas.width;
-
-  for (let i = 0; i < SEGMENTS; i++) {
-    ctx.save();
-    ctx.rotate(i * angleStep);
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, r, -angleStep / 2, angleStep / 2);
-    ctx.closePath();
-    ctx.clip();
-
-    if (i % 2 === 1) ctx.scale(1, -1);
-
-    const srcSize = src * 0.48;
-    const sx = src * 0.5 - srcSize / 2 + Math.sin(t * 0.25 + i) * src * 0.06;
-    const sy = src * 0.5 - srcSize / 2 + Math.cos(t * 0.28 + i) * src * 0.06;
-    ctx.drawImage(sourceCanvas, sx, sy, srcSize, srcSize, -r, -r, r * 2, r * 2);
-
-    ctx.restore();
-  }
-
-  ctx.globalCompositeOperation = "screen";
-  ctx.strokeStyle = "rgba(255,255,255,0.18)";
-  ctx.lineWidth = Math.max(0.8, r * 0.025);
-  ctx.beginPath();
-  ctx.arc(0, 0, r, 0, Math.PI * 2);
-  ctx.stroke();
-
-  ctx.restore();
-  ctx.globalCompositeOperation = "source-over";
-}
-
-function drawMirrorLines(cx, cy, radius, angleStep, rotation) {
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(rotation);
   ctx.globalCompositeOperation = "screen";
-
-  ctx.strokeStyle = "rgba(255,255,255,0.13)";
-  ctx.lineWidth = Math.max(0.8, radius * 0.00115);
+  ctx.lineWidth = Math.max(0.7, Math.min(w, h) * 0.0008);
+  ctx.strokeStyle = "rgba(255,255,255,0.055)";
 
   for (let i = 0; i < SEGMENTS; i++) {
-    ctx.rotate(angleStep);
+    ctx.rotate(angle);
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.lineTo(radius, 0);
     ctx.stroke();
   }
 
-  ctx.strokeStyle = "rgba(210,235,255,0.052)";
-  for (let r = radius * 0.18; r < radius * 0.96; r += radius * 0.16) {
+  ctx.strokeStyle = "rgba(210,235,255,0.035)";
+  for (let r = radius * 0.18; r < radius * 0.96; r += radius * 0.18) {
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.stroke();
@@ -565,48 +411,26 @@ function drawMirrorLines(cx, cy, radius, angleStep, rotation) {
   ctx.globalCompositeOperation = "source-over";
 }
 
-function applyFinishing(w, h) {
-  ctx.save();
-
-  ctx.globalCompositeOperation = "screen";
-  ctx.globalAlpha = BEAUTY.glow;
-  ctx.filter = `blur(${Math.max(4, Math.min(w, h) * 0.011)}px) saturate(1.22)`;
-  ctx.drawImage(canvas, 0, 0);
-
-  ctx.filter = "none";
-  ctx.globalAlpha = BEAUTY.edge;
-  ctx.strokeStyle = "rgba(255,255,255,0.12)";
-  ctx.lineWidth = Math.max(1, Math.min(w, h) * 0.001);
-  ctx.strokeRect(0, 0, w, h);
-
-  ctx.restore();
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = "source-over";
-  ctx.filter = "none";
-
-  drawEyepiece(w, h);
-}
-
-function drawEyepiece(w, h) {
+function drawLensFinish(w, h) {
   const cx = w / 2;
   const cy = h / 2;
-  const r = Math.min(w, h) * 0.56;
-  const maxR = Math.sqrt(w*w + h*h) * 0.66;
+  const minR = Math.min(w, h);
+  const maxR = Math.sqrt(w * w + h * h) * 0.64;
 
   ctx.save();
 
-  const g = ctx.createRadialGradient(cx, cy, r * 0.45, cx, cy, maxR);
-  g.addColorStop(0, "rgba(0,0,0,0)");
-  g.addColorStop(0.68, "rgba(0,0,0,0.04)");
-  g.addColorStop(0.84, "rgba(0,0,0,0.31)");
-  g.addColorStop(1, "rgba(0,0,0,0.88)");
-  ctx.fillStyle = g;
+  const vignette = ctx.createRadialGradient(cx, cy, minR * 0.18, cx, cy, maxR);
+  vignette.addColorStop(0, "rgba(0,0,0,0)");
+  vignette.addColorStop(0.72, "rgba(0,0,0,0.03)");
+  vignette.addColorStop(0.90, "rgba(0,0,0,0.24)");
+  vignette.addColorStop(1, "rgba(0,0,0,0.72)");
+  ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, w, h);
 
   ctx.globalCompositeOperation = "screen";
-  const shine = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.38, 0, cx, cy, r);
-  shine.addColorStop(0, "rgba(255,255,255,0.12)");
-  shine.addColorStop(0.22, "rgba(180,230,255,0.045)");
+  const shine = ctx.createRadialGradient(cx - minR * 0.22, cy - minR * 0.24, 0, cx, cy, minR * 0.62);
+  shine.addColorStop(0, "rgba(255,255,255,0.09)");
+  shine.addColorStop(0.22, "rgba(180,230,255,0.035)");
   shine.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = shine;
   ctx.fillRect(0, 0, w, h);
@@ -621,11 +445,17 @@ function draw() {
   const w = canvas.width;
   const h = canvas.height;
   const t = (performance.now() - startTime) / 1000;
+  const rotationSpeed = Number(rotationSpeedInput.value);
+  const rotation = t * rotationSpeed * 0.27;
 
-  prepareSource(t);
   ctx.clearRect(0, 0, w, h);
-  drawKaleidoscope(w, h, t);
-  applyFinishing(w, h);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, w, h);
+
+  drawWedgeImage(w, h, t, rotation);
+  drawSoftGlow(w, h);
+  drawMirrorGuides(w, h, rotation);
+  drawLensFinish(w, h);
 
   requestAnimationFrame(draw);
 }
